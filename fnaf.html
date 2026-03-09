@@ -2,39 +2,619 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Five Nights at Freddy's - Supervivencia Web</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FNAF - Ultra High Graphics Edition</title>
     <style>
-        /* ESTILOS GLOBALES Y ATMÓSFERA */
         :root {
-            --red-btn: #a00;
-            --white-btn: #ddd;
-            --green-btn: #0a0;
+            --panel-bg: #222;
+            --btn-red: #800;
+            --btn-red-active: #f00;
+            --btn-white: #aaa;
+            --btn-white-active: #fff;
         }
 
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
-            background-color: #000; color: #fff;
-            font-family: 'Courier New', Courier, monospace;
+            background: #000; color: #fff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             overflow: hidden; user-select: none;
         }
 
-        /* EFECTO VHS / CRT */
-        .crt-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            background-size: 100% 4px, 6px 100%;
-            z-index: 100; pointer-events: none; opacity: 0.8;
+        /* ATMÓSFERA CRT */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 3px, 3px 100%; z-index: 1000; pointer-events: none;
         }
 
         /* PANTALLA DE INICIO */
-        #main-menu {
+        #menu {
             position: absolute; width: 100%; height: 100%;
-            background: radial-gradient(circle at center, #222 0%, #000 70%);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 200;
+            background: radial-gradient(circle, #151515 0%, #000 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2000;
+        }
+        #menu h1 { font-size: 4rem; margin-bottom: 50px; text-shadow: 0 0 20px #fff; letter-spacing: 5px; }
+        .btn-start {
+            padding: 15px 50px; font-size: 1.5rem; background: transparent; color: #fff;
+            border: 2px solid #fff; cursor: pointer; transition: 0.3s;
+        }
+        .btn-start:hover { background: #fff; color: #000; box-shadow: 0 0 30px #fff; }
+        
+        #controls-info {
+            margin-top: 30px; text-align: center; border: 1px solid #444; padding: 20px; border-radius: 10px; background: rgba(255,255,255,0.05);
         }
 
+        /* CONTENEDOR PRINCIPAL */
+        #game { display: none; width: 100%; height: 100%; position: relative; }
+
+        /* OFICINA MEJORADA */
+        #office {
+            width: 100%; height: 100%; position: relative;
+            background: #0a0a0a; display: flex; justify-content: center; align-items: flex-end;
+            perspective: 1000px;
+        }
+
+        /* Pasillos laterales */
+        .hallway {
+            position: absolute; bottom: 0; width: 30%; height: 100%; background: #050505;
+            transition: background 0.15s ease; z-index: 1; border: 20px solid #111;
+        }
+        #hallway-left { left: 0; border-right: none; }
+        #hallway-right { right: 0; border-left: none; }
+
+        /* Puertas */
+        .door-visual {
+            position: absolute; top: -100%; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(to right, #222, #333, #222);
+            border-bottom: 10px solid #111; z-index: 10;
+            transition: top 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .door-visual.closed { top: 0; }
+
+        /* Paneles de Control */
+        .control-panel {
+            position: absolute; bottom: 20%; width: 100px; height: 200px;
+            background: #1a1a1a; border: 5px solid #000; border-radius: 5px;
+            display: flex; flex-direction: column; justify-content: space-around; align-items: center;
+            z-index: 20; padding: 10px; box-sizing: border-box;
+        }
+        #panel-left { right: -120px; }
+        #panel-right { left: -120px; }
+
+        .btn-wrapper { text-align: center; pointer-events: auto; cursor: pointer; }
+        .btn-wrapper span { font-size: 0.7rem; color: #888; font-weight: bold; display: block; margin-bottom: 5px; }
+        
+        .p-btn {
+            width: 60px; height: 60px; border-radius: 5px; border: 4px solid #000;
+            box-shadow: 0 4px 0 #000; transition: 0.1s;
+        }
+        .p-btn.door { background: var(--btn-red); }
+        .p-btn.door.active { background: var(--btn-red-active); box-shadow: 0 0 15px var(--btn-red-active); }
+        .p-btn.light { background: var(--btn-white); }
+        .p-btn.light.active { background: var(--btn-white-active); box-shadow: 0 0 15px var(--btn-white-active); }
+
+        /* ESCRITORIO */
+        #desk {
+            position: relative; width: 50%; height: 35%; background: #1a1a1a;
+            border-top: 10px solid #222; z-index: 5; box-shadow: 0 -20px 50px #000;
+        }
+        .fan-container {
+            position: absolute; top: -120px; left: 50%; transform: translateX(-50%);
+            width: 100px; height: 100px; z-index: 6;
+        }
+        .fan-head {
+            width: 100%; height: 100%; border: 6px solid #333; border-radius: 50%;
+            background: rgba(0,0,0,0.8); position: relative; overflow: hidden;
+        }
+        .blades {
+            position: absolute; width: 100%; height: 100%;
+            background: conic-gradient(from 0deg, transparent 0, #444 45deg, transparent 90deg, #444 135deg, transparent 180deg, #444 225deg, transparent 270deg, #444 315deg, transparent 360deg);
+            animation: spin 0.1s linear infinite;
+        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .cupcake {
+            position: absolute; top: -50px; right: 20px; width: 40px; height: 50px;
+            background: pink; border-radius: 20px 20px 0 0; border-bottom: 15px solid #bfa82a;
+        }
+
+        /* UI */
+        #ui { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 100; pointer-events: none; }
+        .power-info { position: absolute; bottom: 30px; left: 30px; font-size: 1.8rem; }
+        .time-info { position: absolute; top: 30px; right: 50px; font-size: 3rem; font-weight: bold; }
+        
+        #monitor-btn {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 400px; height: 60px; background: rgba(255,255,255,0.1);
+            border: 2px solid #fff; pointer-events: auto; cursor: pointer;
+            text-align: center; line-height: 60px; font-size: 1.5rem; transition: 0.2s;
+        }
+        #monitor-btn:hover { background: rgba(255,255,255,0.3); }
+
+        /* MONITOR / CÁMARAS */
+        #monitor {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 500;
+        }
+        #cam-canvas { width: 100%; height: 100%; }
+        #cam-static { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0.15; pointer-events: none; }
+        
+        #map {
+            position: absolute; bottom: 50px; right: 50px; width: 300px; height: 300px;
+            background: rgba(0,0,0,0.8); border: 2px solid #fff; padding: 10px;
+        }
+        .cam-btn {
+            position: absolute; background: #222; border: 1px solid #fff; color: #fff;
+            padding: 5px; cursor: pointer; font-size: 0.8rem;
+        }
+        .cam-btn.active { background: #0a0; }
+
+        /* JUMPSCARE */
+        #jumpscare {
+            display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 3000;
+        }
+        #j-canvas { width: 100%; height: 100%; }
+
+        /* ANIMATRONICOS EN EL PASILLO */
+        .hall-monster {
+            position: absolute; bottom: 10%; left: 50%; transform: translateX(-50%);
+            width: 300px; height: 600px; opacity: 0; transition: opacity 0.1s;
+        }
+    </style>
+</head>
+<body>
+
+<div class="scanlines"></div>
+
+<!-- MENÚ PRINCIPAL -->
+<div id="menu">
+    <h1>FIVE NIGHTS AT FREDDY'S</h1>
+    <button class="btn-start" onclick="initGame()">COMENZAR NOCHE</button>
+    <div id="controls-info">
+        <h3>CONTROLES</h3>
+        <p>Usa los botones rojos para <strong>PUERTAS</strong></p>
+        <p>Usa los botones blancos para <strong>LINTERNAS</strong></p>
+        <p>Sobrevive hasta las 6 AM</p>
+    </div>
+</div>
+
+<!-- JUEGO -->
+<div id="game">
+    <div id="office">
+        <!-- Lado Izquierdo -->
+        <div id="hallway-left" class="hallway">
+            <canvas id="monster-l" class="hall-monster"></canvas>
+            <div id="door-l" class="door-visual"></div>
+            <div class="control-panel" id="panel-left">
+                <div class="btn-wrapper" onclick="game.toggleDoor('left')">
+                    <span>DOOR</span>
+                    <div id="btn-door-l" class="p-btn door"></div>
+                </div>
+                <div class="btn-wrapper" onmousedown="game.toggleLight('left', true)" onmouseup="game.toggleLight('left', false)" onmouseleave="game.toggleLight('left', false)">
+                    <span>LIGHT</span>
+                    <div id="btn-light-l" class="p-btn light"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Escritorio Central -->
+        <div id="desk">
+            <div class="fan-container">
+                <div class="fan-head"><div class="blades"></div></div>
+                <div style="position:absolute; bottom:-10px; left:40px; width:20px; height:40px; background:#222;"></div>
+            </div>
+            <div class="cupcake">
+                <div style="position:absolute; top:10px; left:5px; width:8px; height:8px; background:#fff; border-radius:50%;"></div>
+                <div style="position:absolute; top:10px; right:5px; width:8px; height:8px; background:#fff; border-radius:50%;"></div>
+            </div>
+            <!-- Papeles y monitor de mesa -->
+            <div style="position:absolute; bottom:20px; left:20px; width:100px; height:5px; background:#333;"></div>
+            <div style="position:absolute; bottom:30px; left:30px; width:80px; height:5px; background:#333;"></div>
+        </div>
+
+        <!-- Lado Derecho -->
+        <div id="hallway-right" class="hallway">
+            <canvas id="monster-r" class="hall-monster"></canvas>
+            <div id="door-r" class="door-visual"></div>
+            <div class="control-panel" id="panel-right">
+                <div class="btn-wrapper" onclick="game.toggleDoor('right')">
+                    <span>DOOR</span>
+                    <div id="btn-door-r" class="p-btn door"></div>
+                </div>
+                <div class="btn-wrapper" onmousedown="game.toggleLight('right', true)" onmouseup="game.toggleLight('right', false)" onmouseleave="game.toggleLight('right', false)">
+                    <span>LIGHT</span>
+                    <div id="btn-light-r" class="p-btn light"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- UI -->
+    <div id="ui">
+        <div class="power-info">Power: <span id="power-val">100</span>%</div>
+        <div class="time-info" id="time-val">12 AM</div>
+        <div id="monitor-btn" onclick="game.toggleMonitor()">MONITOR</div>
+    </div>
+
+    <!-- MONITOR -->
+    <div id="monitor">
+        <canvas id="cam-canvas"></canvas>
+        <canvas id="cam-static"></canvas>
+        <div id="map"></div>
+        <div id="cam-name" style="position:absolute; top:50px; left:50px; font-size:2rem; border:2px solid #fff; padding:10px;">STAGE</div>
+    </div>
+</div>
+
+<!-- JUMPSCARE -->
+<div id="jumpscare">
+    <canvas id="j-canvas"></canvas>
+</div>
+
+<script>
+/**
+ * CLASE PRINCIPAL DEL JUEGO
+ */
+const game = {
+    power: 100,
+    time: 0,
+    isDoorL: false,
+    isDoorR: false,
+    isLightL: false,
+    isLightR: false,
+    isMonitor: false,
+    currentCam: '1A',
+    usage: 1,
+    active: false,
+    
+    // Animatrónicos
+    animatronics: {
+        bonnie: { pos: '1A', color: '#2a2a6e', type: 'bunny', ai: 3 },
+        chica: { pos: '1A', color: '#d4af37', type: 'chicken', ai: 2 },
+        freddy: { pos: '1A', color: '#4b2e1e', type: 'bear', ai: 1 },
+        foxy: { pos: '1C', stage: 0, ai: 1 },
+        golden: { pos: 'none', ai: 0 }
+    },
+
+    init() {
+        this.active = true;
+        this.tick();
+        this.updateAI();
+        this.renderStatic();
+        this.setupMap();
+        this.startAudio();
+    },
+
+    startAudio() {
+        this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    },
+
+    playSound(freq, type, duration) {
+        if(!this.audioCtx) return;
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, this.audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.audioCtx.currentTime + duration);
+        osc.connect(gain); gain.connect(this.audioCtx.destination);
+        osc.start(); osc.stop(this.audioCtx.currentTime + duration);
+    },
+
+    toggleDoor(side) {
+        if(this.power <= 0) return;
+        this.playSound(100, 'square', 0.2);
+        if(side === 'left') {
+            this.isDoorL = !this.isDoorL;
+            document.getElementById('door-l').className = this.isDoorL ? 'door-visual closed' : 'door-visual';
+            document.getElementById('btn-door-l').classList.toggle('active', this.isDoorL);
+        } else {
+            this.isDoorR = !this.isDoorR;
+            document.getElementById('door-r').className = this.isDoorR ? 'door-visual closed' : 'door-visual';
+            document.getElementById('btn-door-r').classList.toggle('active', this.isDoorR);
+        }
+        this.calcUsage();
+    },
+
+    toggleLight(side, state) {
+        if(this.power <= 0) return;
+        if(state) this.playSound(800, 'sine', 0.05);
+        
+        if(side === 'left') {
+            this.isLightL = state;
+            document.getElementById('hallway-left').style.background = state ? '#555' : '#050505';
+            document.getElementById('btn-light-l').classList.toggle('active', state);
+            this.renderHallwayMonster('left');
+        } else {
+            this.isLightR = state;
+            document.getElementById('hallway-right').style.background = state ? '#555' : '#050505';
+            document.getElementById('btn-light-r').classList.toggle('active', state);
+            this.renderHallwayMonster('right');
+        }
+        this.calcUsage();
+    },
+
+    toggleMonitor() {
+        if(this.power <= 0) return;
+        this.isMonitor = !this.isMonitor;
+        this.playSound(400, 'sine', 0.1);
+        document.getElementById('monitor').style.display = this.isMonitor ? 'block' : 'none';
+        if(this.isMonitor) this.renderCam();
+        this.calcUsage();
+    },
+
+    calcUsage() {
+        let u = 1;
+        if(this.isDoorL) u++;
+        if(this.isDoorR) u++;
+        if(this.isLightL || this.isLightR) u++;
+        if(this.isMonitor) u++;
+        this.usage = u;
+    },
+
+    tick() {
+        if(!this.active) return;
+        
+        // Consumo de energía
+        this.power -= (this.usage * 0.1);
+        document.getElementById('power-val').innerText = Math.max(0, Math.floor(this.power));
+        
+        if(this.power <= 0) this.gameOver('power');
+
+        // Tiempo
+        this.time += 0.05; // 12 AM a 6 AM en aprox 6 mins
+        let hour = Math.floor(this.time);
+        document.getElementById('time-val').innerText = hour === 0 ? '12 AM' : hour + ' AM';
+        if(hour >= 6) this.win();
+
+        setTimeout(() => this.tick(), 1000);
+    },
+
+    setupMap() {
+        const cams = {
+            '1A': [150, 20], '1B': [120, 80], '1C': [50, 120],
+            '2A': [100, 220], '2B': [100, 260], '3': [30, 250],
+            '4A': [200, 220], '4B': [200, 260], '5': [20, 50]
+        };
+        const mapDiv = document.getElementById('map');
+        for(let id in cams) {
+            const b = document.createElement('button');
+            b.className = 'cam-btn';
+            b.innerText = id;
+            b.style.left = cams[id][0] + 'px';
+            b.style.top = cams[id][1] + 'px';
+            b.onclick = () => {
+                this.currentCam = id;
+                document.querySelectorAll('.cam-btn').forEach(btn => btn.classList.remove('active'));
+                b.classList.add('active');
+                document.getElementById('cam-name').innerText = "CAM " + id;
+                this.renderCam();
+                this.playSound(600, 'sine', 0.05);
+            };
+            if(id === '1A') b.classList.add('active');
+            mapDiv.appendChild(b);
+        }
+    },
+
+    /**
+     * DIBUJO DE ANIMATRÓNICOS (MEJORADOS)
+     */
+    drawAnimatronic(ctx, type, x, y, scale, isHallway = false) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(scale, scale);
+
+        let color = "#444";
+        if(type === 'bear') color = "#4b2e1e";
+        if(type === 'bunny') color = "#2a2a6e";
+        if(type === 'chicken') color = "#d4af37";
+        if(type === 'foxy') color = "#8a1a1a";
+        if(type === 'golden') color = "#b59410";
+
+        if(isHallway) color = "#111"; // Silueta en pasillo
+
+        // Cuerpo
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.ellipse(0, 100, 60, 80, 0, 0, Math.PI*2); ctx.fill();
+
+        // Cabeza
+        ctx.beginPath(); ctx.ellipse(0, 0, 50, 45, 0, 0, Math.PI*2); ctx.fill();
+
+        // Rasgos específicos
+        if(type === 'bear' || type === 'golden') {
+            // Orejas
+            ctx.beginPath(); ctx.arc(-40, -40, 15, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(40, -40, 15, 0, Math.PI*2); ctx.fill();
+            // Sombrero
+            if(!isHallway) {
+                ctx.fillStyle = "#111";
+                ctx.fillRect(-20, -75, 40, 35);
+                ctx.fillRect(-35, -45, 70, 8);
+            }
+        }
+
+        if(type === 'bunny') {
+            // Orejas largas
+            ctx.beginPath(); ctx.ellipse(-25, -80, 12, 50, -0.1, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(25, -80, 12, 50, 0.1, 0, Math.PI*2); ctx.fill();
+        }
+
+        if(type === 'chicken') {
+            // Pelos arriba
+            ctx.beginPath(); ctx.moveTo(0,-45); ctx.lineTo(-10, -65); ctx.lineTo(10, -65); ctx.fill();
+            if(!isHallway) {
+                // Babero
+                ctx.fillStyle = "#fff";
+                ctx.beginPath(); ctx.ellipse(0, 80, 40, 30, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.font = "bold 10px Arial"; ctx.textAlign="center";
+                ctx.fillText("LET'S EAT", 0, 85);
+                // Pico
+                ctx.fillStyle = "#f30";
+                ctx.beginPath(); ctx.ellipse(0, 15, 20, 12, 0, 0, Math.PI*2); ctx.fill();
+            }
+        }
+
+        if(type === 'foxy') {
+            // Orejas puntiagudas
+            ctx.beginPath(); ctx.moveTo(-20, -40); ctx.lineTo(-50, -80); ctx.lineTo(-40, -30); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(20, -40); ctx.lineTo(50, -80); ctx.lineTo(40, -30); ctx.fill();
+            if(!isHallway) {
+                // Parche
+                ctx.fillStyle = "#111";
+                ctx.beginPath(); ctx.arc(20, -10, 12, 0, Math.PI*2); ctx.fill();
+                ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-50, -30); ctx.lineTo(50, 0); ctx.stroke();
+            }
+        }
+
+        // Ojos
+        if(!isHallway) {
+            ctx.fillStyle = "#fff";
+            ctx.beginPath(); ctx.arc(-20, -10, 8, 0, Math.PI*2); ctx.fill();
+            if(type !== 'foxy') { ctx.beginPath(); ctx.arc(20, -10, 8, 0, Math.PI*2); ctx.fill(); }
+            
+            ctx.fillStyle = (type === 'golden') ? "#fff" : "#000";
+            ctx.beginPath(); ctx.arc(-20, -10, 3, 0, Math.PI*2); ctx.fill();
+            if(type !== 'foxy') { ctx.beginPath(); ctx.arc(20, -10, 3, 0, Math.PI*2); ctx.fill(); }
+        } else {
+            // Ojos brillantes en el pasillo
+            ctx.fillStyle = "#fff";
+            ctx.beginPath(); ctx.arc(-20, -10, 4, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(20, -10, 4, 0, Math.PI*2); ctx.fill();
+        }
+
+        ctx.restore();
+    },
+
+    renderCam() {
+        const canvas = document.getElementById('cam-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 1200; canvas.height = 800;
+        
+        ctx.fillStyle = "#151515";
+        ctx.fillRect(0,0, 1200, 800);
+
+        // Grid de fondo
+        ctx.strokeStyle = "#222";
+        for(let i=0; i<1200; i+=100) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 800); ctx.stroke(); }
+
+        // Renderizar animatrónicos en sus posiciones
+        if(this.currentCam === '1A') {
+            this.drawAnimatronic(ctx, 'bear', 600, 300, 1.2);
+            this.drawAnimatronic(ctx, 'bunny', 450, 350, 1.1);
+            this.drawAnimatronic(ctx, 'chicken', 750, 350, 1.1);
+        } else {
+            for(let key in this.animatronics) {
+                if(this.animatronics[key].pos === this.currentCam) {
+                    this.drawAnimatronic(ctx, this.animatronics[key].type, 600, 400, 1.5);
+                }
+            }
+        }
+        
+        // Efecto de ruido
+        ctx.fillStyle = "rgba(255,255,255,0.05)";
+        for(let i=0; i<100; i++) {
+            ctx.fillRect(Math.random()*1200, Math.random()*800, 2, 2);
+        }
+    },
+
+    renderHallwayMonster(side) {
+        const canvas = document.getElementById(side === 'left' ? 'monster-l' : 'monster-r');
+        const ctx = canvas.getContext('2d');
+        canvas.width = 300; canvas.height = 600;
+        ctx.clearRect(0,0,300,600);
+
+        let present = false;
+        if(side === 'left' && this.animatronics.bonnie.pos === 'office') {
+            this.drawAnimatronic(ctx, 'bunny', 150, 200, 1.8, true);
+            present = true;
+        }
+        if(side === 'right' && this.animatronics.chica.pos === 'office') {
+            this.drawAnimatronic(ctx, 'chicken', 150, 200, 1.8, true);
+            present = true;
+        }
+
+        canvas.style.opacity = present ? 1 : 0;
+    },
+
+    updateAI() {
+        if(!this.active) return;
+        
+        const paths = {
+            bonnie: ['1A', '1B', '5', '2A', '3', '2B', 'office'],
+            chica: ['1A', '1B', '4A', '4B', 'office'],
+            freddy: ['1A', '1B', '4A', '4B', 'office']
+        };
+
+        for(let key in paths) {
+            let anim = this.animatronics[key];
+            if(Math.random() * 20 < anim.ai) {
+                let curIdx = paths[key].indexOf(anim.pos);
+                if(curIdx < paths[key].length - 1) {
+                    anim.pos = paths[key][curIdx + 1];
+                }
+            }
+        }
+
+        // Chequear ataque
+        if(this.animatronics.bonnie.pos === 'office' && !this.isDoorL && !this.isMonitor) this.gameOver('bonnie');
+        if(this.animatronics.chica.pos === 'office' && !this.isDoorR && !this.isMonitor) this.gameOver('chica');
+
+        setTimeout(() => this.updateAI(), 4000);
+    },
+
+    renderStatic() {
+        const c = document.getElementById('cam-static');
+        const ctx = c.getContext('2d');
+        c.width = 400; c.height = 300;
+        const idata = ctx.createImageData(400, 300);
+        const draw = () => {
+            for(let i=0; i<idata.data.length; i+=4) {
+                const v = Math.random()*255;
+                idata.data[i] = idata.data[i+1] = idata.data[i+2] = v;
+                idata.data[i+3] = 255;
+            }
+            ctx.putImageData(idata, 0,0);
+            requestAnimationFrame(draw);
+        };
+        draw();
+    },
+
+    gameOver(reason) {
+        this.active = false;
+        this.playSound(50, 'sawtooth', 2);
+        document.getElementById('jumpscare').style.display = 'block';
+        const canvas = document.getElementById('j-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        
+        let sc = 1;
+        const loop = () => {
+            ctx.fillStyle = "#000"; ctx.fillRect(0,0,canvas.width, canvas.height);
+            this.drawAnimatronic(ctx, reason === 'bonnie' ? 'bunny' : 'bear', canvas.width/2, canvas.height/2, sc);
+            sc += 0.5;
+            if(sc < 15) requestAnimationFrame(loop);
+            else {
+                alert("FIN DEL JUEGO");
+                location.reload();
+            }
+        };
+        loop();
+    },
+
+    win() {
+        this.active = false;
+        alert("6:00 AM - ¡SOBREVIVISTE!");
+        location.reload();
+    }
+};
+
+function initGame() {
+    document.getElementById('menu').style.display = 'none';
+    document.getElementById('game').style.display = 'block';
+    game.init();
+}
+</script>
+</body>
+</html>
         #main-menu h1 { font-size: 4rem; text-shadow: 0 0 10px #fff; margin-bottom: 20px; }
         
         .menu-btn {
